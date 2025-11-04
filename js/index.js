@@ -50,6 +50,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       constantChk: null,
       hiddenChk: null, // hide notes checkbox
       contextMenu: null,
+      contextAnchor: null, // { anchor: HTMLElement, dx, dy }
     };
 
   // Offscreen buffer so eraser only affects annotations, not the ComfyUI graph
@@ -138,6 +139,33 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       }
     }
 
+    function syncFlagsUI() {
+      // Sync checkboxes in sidebar/dock
+      try {
+        const dashed = document.getElementById('iam_dashed');
+        if (dashed) dashed.checked = !!state.dashed;
+        const constant = document.getElementById('iam_constant');
+        if (constant) constant.checked = !!state.constantScreen;
+        const hidpi = document.getElementById('iam_hidpi');
+        if (hidpi) hidpi.checked = !!state.hiDPIx2;
+        const hidden = document.getElementById('iam_hidden');
+        if (hidden) hidden.checked = !!state.hidden;
+      } catch {}
+      // Sync checkboxes in context menu
+      try {
+        if (ui.contextMenu) {
+          const dsh = ui.contextMenu.querySelector('#ctx_dashed');
+          if (dsh) dsh.checked = !!state.dashed;
+          const cst = ui.contextMenu.querySelector('#ctx_constant');
+          if (cst) cst.checked = !!state.constantScreen;
+          const hdp = ui.contextMenu.querySelector('#ctx_hidpi');
+          if (hdp) hdp.checked = !!state.hiDPIx2;
+          const hid = ui.contextMenu.querySelector('#ctx_hidden');
+          if (hid) hid.checked = !!state.hidden;
+        }
+      } catch {}
+    }
+
     function setEnabled(val) {
       state.enabled = !!val;
       // If disabling while drawing, finish current stroke gracefully
@@ -145,22 +173,19 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         state.paths.push(state.current);
         state.current = null;
       }
-      // On enable, reset to required defaults (draw mode active)
-      if (state.enabled) {
-        state.color = '#ff4444';
-        state.widthDraw = 15;
-        state.opacityDraw = 1.0;
-        state.widthErase = 48;
-        state.opacityErase = 1.0;
-        state.eraser = false; // start in draw mode
-        state.width = state.widthDraw;
-        state.opacity = state.opacityDraw;
-        if (ui.eraserBtn) {
-          ui.eraserBtn.textContent = '✏️ Draw';
-          ui.eraserBtn.style.background = '#795548';
-        }
-        syncBrushOpacityUI();
+      // Preserve user brush settings; but on enable force dashed back to off per requirement
+      if (state.enabled && state.dashed) {
+        state.dashed = false;
+        syncFlagsUI();
       }
+      // Keep current color, width, opacity, constant width, and mode choices intact
+      // Sync UI to reflect current state
+      if (ui.eraserBtn) {
+        ui.eraserBtn.textContent = state.eraser ? '🩹 Eraser' : '✏️ Draw';
+        ui.eraserBtn.style.background = state.eraser ? '#c2185b' : '#795548';
+      }
+      syncBrushOpacityUI();
+      syncFlagsUI();
       syncUI();
       app?.canvas?.setDirty(true, true);
       console.log('[IAMCCS] Annotate:', state.enabled ? 'ON' : 'OFF');
@@ -795,6 +820,33 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       }
     }
 
+    // Keep menu anchored to the floating button when it moves/resizes
+    function repositionContextMenuIfAnchored() {
+      try {
+        if (!ui.contextMenu || !ui.contextAnchor) return;
+        let anchor = ui.contextAnchor.anchor;
+        if (!anchor || !document.body.contains(anchor)) {
+          // If anchor was recreated, prefer current floating button
+          if (ui.floating && document.body.contains(ui.floating)) {
+            // Keep relative offset to the new button using previous dx/dy if possible
+            const r = ui.floating.getBoundingClientRect();
+            const nx = Math.max(0, Math.min(window.innerWidth - ui.contextMenu.offsetWidth, r.left + (ui.contextAnchor.dx || 0)));
+            const ny = Math.max(0, Math.min(window.innerHeight - ui.contextMenu.offsetHeight, r.top + (ui.contextAnchor.dy || -ui.contextMenu.offsetHeight - 8)));
+            ui.contextMenu.style.left = nx + 'px';
+            ui.contextMenu.style.top = ny + 'px';
+            ui.contextAnchor = { anchor: ui.floating, dx: (ui.contextAnchor.dx||0), dy: (ui.contextAnchor.dy||-ui.contextMenu.offsetHeight - 8) };
+            return;
+          }
+          return;
+        }
+        const r = anchor.getBoundingClientRect();
+        const nx = Math.max(0, Math.min(window.innerWidth - ui.contextMenu.offsetWidth, r.left + (ui.contextAnchor.dx||0)));
+        const ny = Math.max(0, Math.min(window.innerHeight - ui.contextMenu.offsetHeight, r.top + (ui.contextAnchor.dy||0)));
+        ui.contextMenu.style.left = nx + 'px';
+        ui.contextMenu.style.top = ny + 'px';
+      } catch {}
+    }
+
     function ensureFloatingToggle() {
       if (ui.floating && document.body.contains(ui.floating)) return ui.floating;
       const btn = document.createElement('button');
@@ -827,10 +879,14 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           setEnabled(!state.enabled);
         }
       }, true);
-      // Right-click context menu with options
+      // Right-click toggles context menu
       btn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        showContextMenu(e.clientX, e.clientY, btn);
+        if (ui.contextMenu && ui.contextAnchor && ui.contextAnchor.anchor === btn) {
+          closeContextMenu('toggle-btn');
+        } else {
+          showContextMenu(e.clientX, e.clientY, btn);
+        }
       });
       document.body.appendChild(btn);
       ui.floating = btn;
@@ -848,12 +904,33 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           }
         }
       });
+      // Keep anchored on window resize/scroll
+      window.addEventListener('resize', repositionContextMenuIfAnchored, true);
+      window.addEventListener('scroll', repositionContextMenuIfAnchored, true);
       return btn;
+    }
+
+    let __ctxOffClick = null;
+    let __ctxOffRight = null;
+    function closeContextMenu(reason) {
+      try {
+        if (ui.contextMenu && document.body.contains(ui.contextMenu)) ui.contextMenu.remove();
+        ui.contextMenu = null;
+        ui.contextAnchor = null;
+        if (__ctxOffClick) {
+          window.removeEventListener('mousedown', __ctxOffClick, true);
+          __ctxOffClick = null;
+        }
+        if (__ctxOffRight) {
+          window.removeEventListener('contextmenu', __ctxOffRight, true);
+          __ctxOffRight = null;
+        }
+      } catch {}
     }
 
     function showContextMenu(x, y, anchorEl) {
       // Remove existing
-      if (ui.contextMenu && document.body.contains(ui.contextMenu)) ui.contextMenu.remove();
+      if (ui.contextMenu && document.body.contains(ui.contextMenu)) closeContextMenu('reopen');
       const menu = document.createElement('div');
       menu.id = 'iamccs-context-menu';
       menu.style.cssText = [
@@ -942,7 +1019,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           <div data-layer-row="${idx}" style="display:flex;gap:4px;align-items:center;padding:4px 6px;margin:2px 0;background:${idx === state.currentLayerIdx ? 'rgba(76,175,80,0.2)' : 'rgba(255,255,255,0.05)'};border-radius:4px;border:1px solid ${idx === state.currentLayerIdx ? '#4CAF50' : 'transparent'};">
             <input data-layer-name="${idx}" type="text" value="${layer.name}" readonly style="flex:1;padding:2px 4px;border:none;border-radius:3px;background:rgba(0,0,0,0.3);color:#fff;font-size:11px;cursor:pointer;" title="Double-click to rename; click to select">
             <button data-layer-toggle-vis="${idx}" title="Toggle visibility" style="padding:2px 4px;border:none;border-radius:3px;background:#555;color:#fff;cursor:pointer;font-size:10px;">${layer.visible ? '👁️' : '🚫'}</button>
-            <button data-layer-toggle-lock="${idx}" title="Toggle lock" style="padding:2px 4px;border:none;border-radius:3px;background:#666;color:#fff;cursor:pointer;font-size:10px;">${layer.locked ? '🔒' : '🔓'}</button>
+            <button data-layer-toggle-lock="${idx}" title="Toggle lock" style="padding:2px 4px;border:none;border-radius:3px;background:${layer.locked ? '#d32f2f' : '#2e7d32'};color:#fff;cursor:pointer;font-size:10px;">${layer.locked ? '🔒' : '🔓'}</button>
             <button data-layer-delete="${idx}" title="Delete layer" style="padding:2px 4px;border:none;border-radius:3px;background:#d32f2f;color:#fff;cursor:pointer;font-size:10px;">✕</button>
           </div>`;
         }).join('');
@@ -1121,8 +1198,17 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         inp.click();
       });
       cls.addEventListener('click', () => { menu.remove(); });
-      const offClick = (ev) => { if (!menu.contains(ev.target) && ev.target !== ui.floating) { menu.remove(); ui.contextAnchor = null; window.removeEventListener('mousedown', offClick, true); } };
-      window.addEventListener('mousedown', offClick, true);
+      __ctxOffClick = (ev) => {
+        if (!menu.contains(ev.target) && ev.target !== ui.floating) {
+          closeContextMenu('off-click');
+        }
+      };
+      window.addEventListener('mousedown', __ctxOffClick, true);
+      // Close also on any right-click outside the menu
+      __ctxOffRight = (ev) => {
+        if (!menu.contains(ev.target)) closeContextMenu('right-click');
+      };
+      window.addEventListener('contextmenu', __ctxOffRight, true);
     }
 
     function toGraphPos(e, canvas) {
