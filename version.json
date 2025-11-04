@@ -1,0 +1,6 @@
+{
+  "name": "iamccs-annotate",
+  "version": "1.0.0",
+  "author": "Carmine Cristallo Scalzi (IAMCCS)",
+  "description": "drawing and annotation tool for ComfyUI."
+}

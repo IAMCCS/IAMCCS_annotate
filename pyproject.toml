@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "IAMCCS-Annotate"
+version = "1.0.0"
+description = "Drawing and annotation tool for ComfyUI with layer support"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "IAMCCS", email = "info@carminecristalloscalzi.com"}
+]
+keywords = ["comfyui", "drawing", "annotation", "extension", "web-ui"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Artistic Software",
+    "Topic :: Multimedia :: Graphics",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/IAMCCS"
+Repository = "https://github.com/IAMCCS/IAMCCS_annotate"
+Issues = "https://github.com/IAMCCS/IAMCCS_annotate/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "flake8"]
+
+[tool.setuptools]
+packages = ["IAMCCS_annotate"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+IAMCCS_annotate = ["js/*.js", "*.md", "*.py"]
