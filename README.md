@@ -175,10 +175,7 @@ Right-click the floating button to access:
 Minimal, compact, and powerful annotation system
 
 
- ## License
-
-- License: Creative Commons Attribution-NoDerivatives 4.0 International (CC BY-ND 4.0)
-- License URL: https://creativecommons.org/licenses/by-nd/4.0/
+# Full license: CC BY-SA 4.0 by IAMCCS (2025)
 
 Found a bug or have a feature request?
 - Check the GitHub issues
