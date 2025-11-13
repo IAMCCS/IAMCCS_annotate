@@ -18,6 +18,7 @@ A powerful drawing and annotation tool for ComfyUI that lets you add notes, sket
 - Dashed line option for different line styles
 - Constant width option (maintains width at any zoom level)
  - HiDPI ×2 rendering toggle for crisper strokes
+- pen-only mode (4 tablet use)
 
 🎨 **Layer System**
 - Create unlimited layers for organized annotations

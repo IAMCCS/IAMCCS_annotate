@@ -20,7 +20,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
     const state = {
       enabled: false,
       color: '#ff4444',
-      width: 15,
+      width: 7,
       paths: [], // {points:[{x,y}], color, width} - kept for backward compatibility
       current: null,
   saveWithWorkflow: true,
@@ -29,15 +29,18 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       constantScreen: false,
       dashed: false,
       hidden: false,
+      penOnly: false,
+      activePointerId: null,
     hiDPIx2: false,
   // Per-mode memory for brush and opacity
-  widthDraw: 15,
+  widthDraw: 7,
   widthErase: 48,
   opacityDraw: 1.0,
   opacityErase: 1.0,
       // Layer system
       currentLayerIdx: 0,
-      layers: [{ name: 'Layer 1', visible: true, locked: false, paths: [] }],
+      layers: [{ name: 'Layer 1', visible: true, locked: false, paths: [], style: { color: '#ff4444', dashed: false, widthDraw: 7, widthErase: 48, opacityDraw: 1.0, opacityErase: 1.0 } }],
+      hydrated: false,
       uiShown: false,
     };
 
@@ -150,6 +153,8 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         if (hidpi) hidpi.checked = !!state.hiDPIx2;
         const hidden = document.getElementById('iam_hidden');
         if (hidden) hidden.checked = !!state.hidden;
+        const penonly = document.getElementById('iam_penonly');
+        if (penonly) penonly.checked = !!state.penOnly;
       } catch {}
       // Sync checkboxes in context menu
       try {
@@ -162,6 +167,8 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           if (hdp) hdp.checked = !!state.hiDPIx2;
           const hid = ui.contextMenu.querySelector('#ctx_hidden');
           if (hid) hid.checked = !!state.hidden;
+          const pen = ui.contextMenu.querySelector('#ctx_penonly');
+          if (pen) pen.checked = !!state.penOnly;
         }
       } catch {}
     }
@@ -218,18 +225,23 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
     function setEraserMode(on) {
       const next = !!on;
       if (state.eraser === next) return;
+      const sty = getCurrentLayerStyle();
       if (next) {
         // switching to eraser: remember current draw values, apply eraser values
-        state.widthDraw = state.width;
-        state.opacityDraw = state.opacity;
-        state.width = state.widthErase || state.width;
-        state.opacity = (typeof state.opacityErase === 'number') ? state.opacityErase : state.opacity;
+        sty.widthDraw = state.width;
+        sty.opacityDraw = state.opacity;
+        state.widthDraw = sty.widthDraw;
+        state.opacityDraw = sty.opacityDraw;
+        state.width = sty.widthErase || state.width;
+        state.opacity = (typeof sty.opacityErase === 'number') ? sty.opacityErase : state.opacity;
       } else {
         // switching to draw: remember current eraser values, apply draw values
-        state.widthErase = state.width;
-        state.opacityErase = state.opacity;
-        state.width = state.widthDraw || state.width;
-        state.opacity = (typeof state.opacityDraw === 'number') ? state.opacityDraw : state.opacity;
+        sty.widthErase = state.width;
+        sty.opacityErase = state.opacity;
+        state.widthErase = sty.widthErase;
+        state.opacityErase = sty.opacityErase;
+        state.width = sty.widthDraw || state.width;
+        state.opacity = (typeof sty.opacityDraw === 'number') ? sty.opacityDraw : state.opacity;
       }
       state.eraser = next;
       if (ui.eraserBtn) {
@@ -283,7 +295,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           <button id="iam_clear" title="Clear all" style="padding:8px 10px;border:none;border-radius:6px;background:#666;color:#fff;cursor:pointer;">🗑️</button>
         </div>
         <div style="display:flex;gap:10px;align-items:center;">
-          <input id="iam_color" type="color" value="#ff4444" style="width:36px;height:28px;border:none;border-radius:4px;background:transparent;cursor:pointer;">
+          <input id="iam_color" type="color" value="${state.color}" style="width:36px;height:28px;border:none;border-radius:4px;background:transparent;cursor:pointer;">
           <div style="flex:1;">
             <div style="font-size:11px;color:#bbb;">Brush: <span id="iam_wv">15</span>px</div>
             <input id="iam_width" type="range" min="1" max="48" value="15" style="width:100%;">
@@ -310,6 +322,10 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;">
             <input id="iam_hidden" type="checkbox">
             <span>Hide notes</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;">
+            <input id="iam_penonly" type="checkbox">
+            <span>Pen only</span>
           </label>
           <div style="flex:1"></div>
         </div>
@@ -340,6 +356,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
   const dashedChk = section.querySelector('#iam_dashed');
   const hidpiChk = section.querySelector('#iam_hidpi');
   const hiddenChk = section.querySelector('#iam_hidden');
+  const penOnlyChk = section.querySelector('#iam_penonly');
         const saveChk = section.querySelector('#iam_save_with_wf');
         const saveNow = section.querySelector('#iam_save_now');
         const loadNow = section.querySelector('#iam_load_now');
@@ -389,6 +406,9 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       hiddenChk.addEventListener('change', () => {
         state.hidden = !!hiddenChk.checked;
         app?.canvas?.setDirty(true, true);
+      });
+      penOnlyChk.addEventListener('change', () => {
+        state.penOnly = !!penOnlyChk.checked;
       });
         saveChk?.addEventListener('change', () => {
           state.saveWithWorkflow = !!saveChk.checked;
@@ -445,7 +465,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
             <button id=\"iam_clear\" title=\"Clear all\" style=\"padding:8px 10px;border:none;border-radius:6px;background:#666;color:#fff;cursor:pointer;\">🗑️</button>
           </div>
           <div style=\"display:flex;gap:10px;align-items:center;\">
-            <input id=\"iam_color\" type=\"color\" value=\"#ff4444\" style=\"width:36px;height:28px;border:none;border-radius:4px;background:transparent;cursor:pointer;\">
+            <input id=\"iam_color\" type=\"color\" value=\"${state.color}\" style=\"width:36px;height:28px;border:none;border-radius:4px;background:transparent;cursor:pointer;\">
             <div style=\"flex:1;\">
               <div style=\"font-size:11px;color:#bbb;\">Brush: <span id=\"iam_wv\">15</span>px</div>
               <input id=\"iam_width\" type=\"range\" min=\"1\" max=\"48\" value=\"15\" style=\"width:100%;\">
@@ -473,6 +493,10 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
               <input id=\"iam_hidden\" type=\"checkbox\">
               <span>Hide notes</span>
             </label>
+            <label style=\"display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;\">
+              <input id=\"iam_penonly\" type=\"checkbox\">
+              <span>Pen only</span>
+            </label>
             <div style=\"flex:1\"></div>
           </div>
           <div style=\"display:flex;gap:8px;align-items:center;margin-top:8px;\">
@@ -499,6 +523,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         const dashedChk = panel.querySelector('#iam_dashed');
   const hidpiChk = panel.querySelector('#iam_hidpi');
         const hiddenChk = panel.querySelector('#iam_hidden');
+        const penOnlyChk = panel.querySelector('#iam_penonly');
         const saveChk = panel.querySelector('#iam_save_with_wf');
         const saveNow = panel.querySelector('#iam_save_now');
         const loadNow = panel.querySelector('#iam_load_now');
@@ -545,6 +570,9 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           state.hidden = !!hiddenChk.checked;
           app?.canvas?.setDirty(true, true);
         });
+        penOnlyChk.addEventListener('change', () => {
+          state.penOnly = !!penOnlyChk.checked;
+        });
         saveChk?.addEventListener('change', () => {
           state.saveWithWorkflow = !!saveChk.checked;
           if (state.saveWithWorkflow) persistToGraphExtra(); else removeFromGraphExtra();
@@ -582,9 +610,78 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       return panel;
     }
 
+      function ensureStateHydratedFromExisting() {
+        try {
+          if (state.hydrated) return;
+          const existing = app?.graph?.extra?.iamccs_annotations;
+          if (!existing) return;
+          // Build merged layers from existing
+          let mergedLayers = [];
+          if (Array.isArray(existing.layers) && existing.layers.length) {
+            mergedLayers = existing.layers.map((layer) => ({
+              name: layer.name || 'Layer',
+              visible: layer.visible !== false,
+              locked: !!layer.locked,
+              paths: Array.isArray(layer.paths) ? layer.paths.map(p => ({
+                color: p.color || '#ff4444',
+                width: p.width || 3,
+                opacity: (typeof p.opacity === 'number') ? p.opacity : 1,
+                mode: p.mode === 'erase' ? 'erase' : 'draw',
+                dashed: !!p.dashed,
+                points: Array.isArray(p.points) ? p.points.map(pt => ({ x: pt.x, y: pt.y })) : [],
+              })) : [],
+              style: (layer.style && typeof layer.style === 'object') ? {
+                color: typeof layer.style.color === 'string' ? layer.style.color : (state.color || '#ff4444'),
+                dashed: !!layer.style.dashed,
+                widthDraw: (typeof layer.style.widthDraw === 'number') ? layer.style.widthDraw : (state.widthDraw || 7),
+                widthErase: (typeof layer.style.widthErase === 'number') ? layer.style.widthErase : (state.widthErase || 48),
+                opacityDraw: (typeof layer.style.opacityDraw === 'number') ? layer.style.opacityDraw : (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0),
+                opacityErase: (typeof layer.style.opacityErase === 'number') ? layer.style.opacityErase : (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0),
+              } : {
+                color: state.color || '#ff4444', dashed: !!state.dashed,
+                widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48,
+                opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0),
+                opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0),
+              },
+            }));
+          } else if (Array.isArray(existing.paths)) {
+            mergedLayers = [{ name: 'Layer 1', visible: true, locked: false, paths: existing.paths.map(p => ({
+              color: p.color || '#ff4444',
+              width: p.width || 3,
+              opacity: (typeof p.opacity === 'number') ? p.opacity : 1,
+              mode: p.mode === 'erase' ? 'erase' : 'draw',
+              dashed: !!p.dashed,
+              points: Array.isArray(p.points) ? p.points.map(pt => ({ x: pt.x, y: pt.y })) : [],
+            })), style: { color: state.color || '#ff4444', dashed: !!state.dashed, widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48, opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0), opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0) } }];
+          }
+          // Overlay current, appending new paths and style tweaks
+          for (let i = 0; i < state.layers.length; i++) {
+            const cur = state.layers[i];
+            ensureLayerStyle(cur);
+            if (!mergedLayers[i]) {
+              mergedLayers[i] = { name: cur.name || `Layer ${i+1}`, visible: cur.visible !== false, locked: !!cur.locked, paths: [], style: { ...cur.style } };
+            }
+            if (Array.isArray(cur.paths) && cur.paths.length) mergedLayers[i].paths.push(...cur.paths);
+            // Update style with current layer's style as most recent
+            mergedLayers[i].style = { ...mergedLayers[i].style, ...cur.style };
+          }
+          state.layers = mergedLayers;
+          // Flatten paths for backward compatibility
+          state.paths = [];
+          for (const lyr of state.layers) for (const p of lyr.paths) state.paths.push(p);
+          // Clamp current layer index
+          if (state.currentLayerIdx >= state.layers.length) state.currentLayerIdx = Math.max(0, state.layers.length - 1);
+          state.hydrated = true;
+        } catch (e) {
+          console.warn('[IAMCCS] ensureStateHydratedFromExisting failed:', e);
+        }
+      }
+
       function persistToGraphExtra(force = false) {
         if (!app?.graph) return;
         if (!state.saveWithWorkflow && !force) return;
+        // Merge existing annotations if we haven't hydrated yet (prevents overwriting)
+        ensureStateHydratedFromExisting();
         app.graph.extra = app.graph.extra || {};
         app.graph.extra.iamccs_annotations = {
           version: 2,
@@ -624,6 +721,14 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
               dashed: !!p.dashed,
               points: Array.isArray(p.points) ? p.points.map(pt => ({ x: pt.x, y: pt.y })) : [],
             })) : [],
+            style: (layer.style && typeof layer.style === 'object') ? {
+              color: typeof layer.style.color === 'string' ? layer.style.color : (state.color || '#ff4444'),
+              dashed: !!layer.style.dashed,
+              widthDraw: (typeof layer.style.widthDraw === 'number') ? layer.style.widthDraw : (state.widthDraw || 7),
+              widthErase: (typeof layer.style.widthErase === 'number') ? layer.style.widthErase : (state.widthErase || 48),
+              opacityDraw: (typeof layer.style.opacityDraw === 'number') ? layer.style.opacityDraw : (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0),
+              opacityErase: (typeof layer.style.opacityErase === 'number') ? layer.style.opacityErase : (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0),
+            } : { color: state.color || '#ff4444', dashed: !!state.dashed, widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48, opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0), opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0) },
           }));
           state.currentLayerIdx = typeof data.currentLayerIdx === 'number' ? data.currentLayerIdx : 0;
         } else if (Array.isArray(data.paths)) {
@@ -637,13 +742,23 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
             points: Array.isArray(p.points) ? p.points.map(pt => ({ x: pt.x, y: pt.y })) : [],
           }));
           // Also populate first layer
-          if (state.layers[0]) state.layers[0].paths = [...state.paths];
+          if (state.layers[0]) {
+            ensureLayerStyle(state.layers[0]);
+            state.layers[0].paths = [...state.paths];
+          } else {
+            state.layers = [{ name: 'Layer 1', visible: true, locked: false, paths: [...state.paths], style: { color: state.color || '#ff4444', dashed: !!state.dashed, widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48, opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0), opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0) } }];
+          }
         } else {
           return false;
         }
-
+        // Refresh flat paths from layers to keep v1 compatibility
+        state.paths = [];
+        for (const lyr of state.layers) for (const p of lyr.paths) state.paths.push(p);
+        state.hydrated = true;
         app?.canvas?.setDirty(true, true);
         console.log('[IAMCCS] Annotazioni caricate da workflow.extra');
+        // Apply style of selected layer to current brush
+        try { applyLayerStyleToState(); } catch {}
         return true;
       }
 
@@ -688,6 +803,11 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
                 points: Array.isArray(p.points) ? p.points.map(pt => ({ x: pt.x, y: pt.y })) : [],
               }));
               app?.canvas?.setDirty(true, true);
+              // Put into first layer for compatibility
+              if (!state.layers[0]) state.layers[0] = { name: 'Layer 1', visible: true, locked: false, paths: [], style: { color: state.color || '#ff4444', dashed: !!state.dashed, widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48, opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0), opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0) } };
+              ensureLayerStyle(state.layers[0]);
+              state.layers[0].paths = [...state.paths];
+              state.hydrated = true;
               if (state.saveWithWorkflow) persistToGraphExtra(true);
               console.log('[IAMCCS] Annotations imported:', state.paths.length);
             } catch (err) {
@@ -730,6 +850,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
             // Put into the first layer for compatibility
             if (state.layers[0]) state.layers[0].paths = [...state.paths];
             app?.canvas?.setDirty(true, true);
+            state.hydrated = true;
             if (state.saveWithWorkflow) persistToGraphExtra(true);
             console.log('[IAMCCS] Annotations imported (from object):', state.paths.length);
             return true;
@@ -781,20 +902,64 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
               state.paths = [];
               state.current = null;
               state.currentLayerIdx = 0;
-              state.layers = [{ name: 'Layer 1', visible: true, locked: false, paths: [] }];
+              state.layers = [{ name: 'Layer 1', visible: true, locked: false, paths: [], style: { color: state.color || '#ff4444', dashed: !!state.dashed, widthDraw: state.widthDraw || 7, widthErase: state.widthErase || 48, opacityDraw: (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0), opacityErase: (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0) } }];
               app?.canvas?.setDirty(true, true);
             }
           }
         };
       } catch {}
 
-    // Layer management functions
+    // Layer management + per-layer style
+    function ensureLayerStyle(layer) {
+      if (!layer) return;
+      layer.style = layer.style || {};
+      if (typeof layer.style.color !== 'string') layer.style.color = state.color || '#ff4444';
+      if (typeof layer.style.dashed !== 'boolean') layer.style.dashed = !!state.dashed;
+      if (typeof layer.style.widthDraw !== 'number') layer.style.widthDraw = state.widthDraw || 7;
+      if (typeof layer.style.widthErase !== 'number') layer.style.widthErase = state.widthErase || 48;
+      if (typeof layer.style.opacityDraw !== 'number') layer.style.opacityDraw = (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0);
+      if (typeof layer.style.opacityErase !== 'number') layer.style.opacityErase = (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0);
+    }
     function getCurrentLayer() {
-      return state.layers[state.currentLayerIdx];
+      const lyr = state.layers[state.currentLayerIdx];
+      ensureLayerStyle(lyr);
+      return lyr;
+    }
+    function getCurrentLayerStyle() {
+      const lyr = getCurrentLayer();
+      return lyr?.style || {};
+    }
+    function applyLayerStyleToState() {
+      const style = getCurrentLayerStyle();
+      state.color = style.color;
+      state.dashed = !!style.dashed;
+      if (state.eraser) {
+        state.width = style.widthErase;
+        state.opacity = style.opacityErase;
+      } else {
+        state.width = style.widthDraw;
+        state.opacity = style.opacityDraw;
+      }
+      state.widthDraw = style.widthDraw;
+      state.widthErase = style.widthErase;
+      state.opacityDraw = style.opacityDraw;
+      state.opacityErase = style.opacityErase;
+      syncFlagsUI();
+      syncBrushOpacityUI();
+      syncUI();
+      app?.canvas?.setDirty(true, true);
     }
     function addLayer() {
       const layerNum = state.layers.length + 1;
-      state.layers.push({ name: `Layer ${layerNum}`, visible: true, locked: false, paths: [] });
+      const base = { ...getCurrentLayerStyle() };
+      state.layers.push({ name: `Layer ${layerNum}`, visible: true, locked: false, paths: [], style: {
+        color: typeof base.color === 'string' ? base.color : (state.color || '#ff4444'),
+        dashed: !!base.dashed,
+        widthDraw: typeof base.widthDraw === 'number' ? base.widthDraw : (state.widthDraw || 7),
+        widthErase: typeof base.widthErase === 'number' ? base.widthErase : (state.widthErase || 48),
+        opacityDraw: typeof base.opacityDraw === 'number' ? base.opacityDraw : (typeof state.opacityDraw === 'number' ? state.opacityDraw : 1.0),
+        opacityErase: typeof base.opacityErase === 'number' ? base.opacityErase : (typeof state.opacityErase === 'number' ? state.opacityErase : 1.0),
+      } });
       state.currentLayerIdx = state.layers.length - 1;
       app?.canvas?.setDirty(true, true);
       return state.layers.length - 1;
@@ -816,7 +981,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
     function setCurrentLayer(idx) {
       if (idx >= 0 && idx < state.layers.length) {
         state.currentLayerIdx = idx;
-        app?.canvas?.setDirty(true, true);
+        applyLayerStyleToState();
       }
     }
 
@@ -879,15 +1044,17 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           setEnabled(!state.enabled);
         }
       }, true);
-      // Right-click toggles context menu
+      // Right-click toggles context menu (and always closes if currently open)
       btn.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        if (ui.contextMenu && ui.contextAnchor && ui.contextAnchor.anchor === btn) {
+        // If any menu is open, close it and stop propagation so global right-click closer doesn't interfere
+        if (ui.contextMenu) {
+          e.stopPropagation();
           closeContextMenu('toggle-btn');
-        } else {
-          showContextMenu(e.clientX, e.clientY, btn);
+          return;
         }
-      });
+        showContextMenu(e.clientX, e.clientY, btn);
+      }, true);
       document.body.appendChild(btn);
       ui.floating = btn;
       // Make draggable (whole button) and move menu with it if open
@@ -980,6 +1147,10 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;">
             <input id="ctx_hidden" type="checkbox" ${state.hidden ? 'checked' : ''}>
             <span>Hide notes</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;">
+            <input id="ctx_penonly" type="checkbox" ${state.penOnly ? 'checked' : ''}>
+            <span>Pen only</span>
           </label>
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#ddd;">
             <input id="ctx_savewf" type="checkbox" ${state.saveWithWorkflow ? 'checked' : ''}>
@@ -1145,6 +1316,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
   const dsh = menu.querySelector('#ctx_dashed');
   const hdp = menu.querySelector('#ctx_hidpi');
   const hid = menu.querySelector('#ctx_hidden');
+  const pen = menu.querySelector('#ctx_penonly');
   ui.hiddenChk = hid; // Store reference for keyboard shortcut
       const swf = menu.querySelector('#ctx_savewf');
   const exp = menu.querySelector('#ctx_export');
@@ -1188,6 +1360,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       dsh.addEventListener('change', () => { state.dashed = !!dsh.checked; app?.canvas?.setDirty(true,true); });
   hdp.addEventListener('change', () => { state.hiDPIx2 = !!hdp.checked; app?.canvas?.setDirty(true,true); });
       hid.addEventListener('change', () => { state.hidden = !!hid.checked; app?.canvas?.setDirty(true,true); });
+      pen.addEventListener('change', () => { state.penOnly = !!pen.checked; });
       swf.addEventListener('change', () => { state.saveWithWorkflow = !!swf.checked; if (state.saveWithWorkflow) persistToGraphExtra(); else removeFromGraphExtra(); });
       exp.addEventListener('click', () => exportAnnotations());
       imp.addEventListener('click', () => {
@@ -1206,7 +1379,8 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       window.addEventListener('mousedown', __ctxOffClick, true);
       // Close also on any right-click outside the menu
       __ctxOffRight = (ev) => {
-        if (!menu.contains(ev.target)) closeContextMenu('right-click');
+        // Ignore right-click on the floating toggle; button handler will manage toggle/close
+        if (!menu.contains(ev.target) && ev.target !== ui.floating) closeContextMenu('right-click');
       };
       window.addEventListener('contextmenu', __ctxOffRight, true);
     }
@@ -1443,10 +1617,12 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         if (!state.enabled) return;
         if (e.target && e.target.closest('#iamccs-sidebar')) return;
         if (e.button !== 0) return; // only left button draws; allow middle-button pan
+        if (state.penOnly && e.pointerType && e.pointerType !== 'pen') return;
         const p = toGraphPos(e, canvas);
         if (!p) return;
         // Capture pointer so we always receive pointerup even if leaving the canvas
         try { if (typeof el.setPointerCapture === 'function') el.setPointerCapture(e.pointerId); } catch {}
+        state.activePointerId = e.pointerId;
         state.current = { color: state.color, width: state.width, opacity: state.opacity, dashed: state.dashed, mode: state.eraser ? 'erase' : 'draw', points: [p] };
         e.preventDefault();
         e.stopPropagation();
@@ -1454,6 +1630,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       };
       const onMove = (e) => {
         if (!state.current) return;
+        if (state.penOnly && state.activePointerId != null && e.pointerId !== state.activePointerId) return;
         const p = toGraphPos(e, canvas);
         if (!p) return;
         state.current.points.push(p);
@@ -1467,6 +1644,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
         // Release pointer capture if active
         try { if (e && typeof el.releasePointerCapture === 'function') el.releasePointerCapture(e.pointerId); } catch {}
         if (!state.current) return;
+        if (state.penOnly && state.activePointerId != null && e.pointerId !== state.activePointerId) return;
         const layer = getCurrentLayer();
         if (layer && !layer.locked) {
           layer.paths.push(state.current);
@@ -1474,6 +1652,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
           state.paths.push(state.current);
         }
         state.current = null;
+        state.activePointerId = null;
         // Reset cursor after drawing
         el.style.cursor = 'default';
         app.canvas.setDirty(true, true);
