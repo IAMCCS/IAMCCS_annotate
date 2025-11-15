@@ -5,6 +5,7 @@ console.log('[IAMCCS] Extension file loaded');
 if (!window.IAMCCS_ANNOTATE_LOADED) {
   console.log('[IAMCCS] Initializing...');
   window.IAMCCS_ANNOTATE_LOADED = true;
+  // Written code by Carmine Cristallo Scalzi (IAMCCS) - AI for debugging - section: Initialization Guard - reason: documents single-run protection preventing duplicate extension setup
 
   (async () => {
     // Import ComfyUI app (ES module)
@@ -73,6 +74,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
     function savePos(key, pos) {
       try { localStorage.setItem(key, JSON.stringify(pos)); } catch {}
     }
+  // Written code by Carmine Cristallo Scalzi (IAMCCS) - AI for debugging - section: Draggable Utility - reason: clarifies helper enabling persistent movable UI panels/buttons
   function makeDraggable(el, { storageKey, handle, isFixed = true, onDrag, onDragStart }) {
       const target = handle || el;
       let dragging = false;
@@ -1413,6 +1415,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
       const prev = canvas.onDrawForeground;
       canvas.onDrawForeground = function (ctx) {
         if (typeof prev === 'function') prev.call(this, ctx);
+        // Written code by Carmine Cristallo Scalzi (IAMCCS) - AI for debugging - section: Foreground Rendering Pipeline - reason: explains offscreen buffer compositing to preserve correct eraser behavior and stroke quality
         // Create floating button on first draw (proper timing)
         if (!state.uiShown) {
           console.log('[IAMCCS] Creating floating button...');
@@ -1671,6 +1674,7 @@ if (!window.IAMCCS_ANNOTATE_LOADED) {
     }
 
     // Register as ComfyUI extension
+    // Written code by Carmine Cristallo Scalzi (IAMCCS) - AI for debugging - section: Extension Registration - reason: marks lifecycle hook integration (init/setup) with ComfyUI for event binding & canvas hooks
     app.registerExtension({
       name: 'IAMCCS.Annotate',
       init() {
@@ -1765,3 +1769,5 @@ function handleWorkflowChange() {
     if (mod && typeof mod._handleWorkflowChange === 'function') mod._handleWorkflowChange();
   } catch {}
 }
+
+// This code was written entirely by hand by Carmine Cristallo Scalzi (IAMCCS) with final AI-assisted debugging – if you copy parts of the code, the result of hard work, please mention the author! Thank you and happy experimenting!
