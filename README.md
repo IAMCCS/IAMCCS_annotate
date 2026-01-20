@@ -2,11 +2,11 @@
 
 <img src="icon.png" width="150" height="150">
 
-Version: 1.0.0 — Coming soon: 2.0.0 (many new features!)
+Version: 2.0.0
 
-A powerful drawing and annotation tool for ComfyUI that lets you add notes, sketches, and annotations directly on your workflow canvas with full layer support.
+#A powerful drawing and annotation tool for ComfyUI that lets you add notes, sketches, and annotations directly on your workflow canvas with full layer support.
 
-![Title](assets/annotate_1.png)
+![Title](assets/cover.png)
 
 ## Features
 
@@ -19,6 +19,7 @@ A powerful drawing and annotation tool for ComfyUI that lets you add notes, sket
 - Constant width option (maintains width at any zoom level)
  - HiDPI ×2 rendering toggle for crisper strokes
 - pen-only mode (4 tablet use)
+- Pin/unpin mode for screenshot post-its
 
 🎨 **Layer System**
 - Create unlimited layers for organized annotations
@@ -28,14 +29,44 @@ A powerful drawing and annotation tool for ComfyUI that lets you add notes, sket
 - Delete layers (minimum 1 layer always kept)
 - Auto-selects new layer as active
 
+🧩 **Subgraph-aware Annotations (NEW in 2.0.0)**
+- Separate drawings per graph/subgraph: entering a subgraph shows its own annotations only
+- Returning to the main workflow restores the main workflow annotations
+
+🧰 **Selection Tools (NEW in 2.0.0)**
+- Select tool with modes: Rectangle, Free-form, Lasso (drag required; no click-to-rect)
+- Copy / Cut / Paste for selected annotations
+- Selected items are highlighted after selection; the big selection frame only appears while dragging
+- Delete selected items with **Delete** or **Backspace** (any tool)
+
+🧭 **Transform / Rotate (NEW in 2.0.0)**
+- Transform: scale selected items by dragging a corner handle
+- Rotate: rotate selected items by dragging a corner handle
+- Corner hit-area is enlarged and handles are visible for easier grabbing
+
+📝 **Text Layers (NEW in 2.0.0)**
+- Create resizable text boxes directly on the workflow (drag to size, then type)
+- Choose font family and font size from the context menu controls
+- Double-click a text box to edit it later
+- Text boxes behave like a single object for Select / Transform / Rotate (whole box, not individual letters)
+
+📸 **Screenshot Post-it (NEW in 2.0.0)**
+- Screenshot tool: drag a rectangle to capture any visible area (nodes/images/annotations)
+- The capture becomes a movable “post-it” you can place anywhere
+- Post-it appearance controls: configurable frame color, padding, border width, and optional shadow
+- Move post-its by dragging any edge (works even when Annotate is OFF)
+- Pin a post-it to lock it in place
+
 📌 **State Management**
-- Save annotations with workflow (automatic)
+- Local autosave (survives refresh even if you don’t save the workflow)
+- Optional “Save into Workflow” (embeds notes into the workflow JSON)
 - Load annotations when reopening workflows
 - Quick toggle to hide/show all annotations
 - Persistent layer structure across sessions
 
 🖱️ **User Interface**
 - Floating button with context menu (right-click)
+- Tools and Post-it settings are also available in the sidebar panel when present; otherwise a draggable dock panel appears near the canvas
 
 ![Title](assets/annotat_3.png)
 
@@ -52,7 +83,21 @@ A powerful drawing and annotation tool for ComfyUI that lets you add notes, sket
 | **Alt+A** | Toggle annotation mode ON/OFF |
 | **Alt+D** | Toggle eraser / draw mode |
 | **Alt+S** | Toggle hide/show annotations |
+| **Alt+1** | Tool: Draw |
+| **Alt+2** | Tool: Select |
+| **Alt+3** | Tool: Transform |
+| **Alt+4** | Tool: Rotate |
+| **Alt+5** | Tool: Screenshot |
+| **Alt+P** | Toggle Pin/unpin mode |
+| **Ctrl+I** | Import workflow + notes (JSON) |
+| **Ctrl+C** | Copy selection (Select tool) |
+| **Ctrl+X** | Cut selection (Select tool) |
+| **Ctrl+V** | Paste selection (Select tool) |
+| **Delete / Backspace** | Delete current selection (any tool) |
 | **Esc** | Cancel current stroke |
+
+Notes:
+- Tool shortcuts (**Alt+1..5**) and **Alt+P** are active when Annotate is ON.
 
 ## Installation
 
@@ -93,14 +138,25 @@ git clone https://github.com/IAMCCS/IAMCCS_annotate.git
 5. Use **lock icon** to prevent editing
 6. Use **X button** to delete layer
 
+Layer color preview:
+- Each layer stores its own color. When you select a layer, the color picker preview updates immediately to that layer’s saved color.
+
+### Adding Text
+1. In the context menu, click **"+ Text"** (next to **"+ Layer"**)
+2. Drag a rectangle on the workflow to set the text box size
+3. Type your text (Enter confirms, Shift+Enter adds a new line)
+4. Double-click a text box to edit it later
+5. Use **Select / Transform / Rotate** to move/scale/rotate the entire text box
+
 ### Hiding Annotations
 - Press **Alt+S** to quickly toggle visibility of all annotations
 - Useful for viewing your workflow without the annotations
 
 ### Workflow Integration
-- Annotations are **automatically saved** when you save your workflow
-- When you open a workflow that has annotations, they load automatically
-- Each workflow has its own separate annotations
+- The plugin keeps your changes immediately via **local autosave** (so deletes/edits survive a refresh).
+- If you want notes to travel with the workflow file, enable **Save into Workflow** and then save the workflow.
+- When you open a workflow that has embedded annotations, they load automatically.
+- Each workflow/subgraph keeps its own separate annotations.
 
 ## Context Menu Options
 
@@ -115,6 +171,18 @@ Right-click the floating button to access:
   - Dashed lines option
   - Hide notes option
 - **Layer Management** - Create, rename, manage layers
+- **Text** - Create resizable text boxes (+ Text) with font + size controls
+- **Tools (NEW)**
+  - ✏️ Draw
+  - 🔲 Select (Rectangle / Free-form / Lasso)
+  - 📸 Shot (Screenshot Post-it)
+  - Copy / Cut / Paste
+  - 🔎 Macro
+- **Screenshot Post-it settings (NEW)**
+  - Frame color
+  - Padding
+  - Border width
+  - Shadow toggle
 - **Export/Import** - Save/load annotations separately
 - **Save into Workflow** - Toggle auto-save feature
 
@@ -147,8 +215,9 @@ Right-click the floating button to access:
 - Verify extension is in `custom_nodes/IAMCCS_annotate`
 
 **Annotations not saving?**
-- Check "Save into workflow" toggle in menu
-- Ensure workflow is saved to disk
+- If you only need persistence after refresh: local autosave should handle it automatically.
+- If you need annotations embedded into the workflow JSON (for sharing/export): enable **Save into Workflow** and save the workflow.
+- Ensure the workflow is saved to disk after enabling the toggle.
 - Check browser console for errors
 
 **Eraser not working?**

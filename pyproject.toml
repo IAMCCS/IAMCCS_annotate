@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "IAMCCS-Annotate"
-version = "1.0.0"
+version = "2.0.0"
 description = "Drawing and annotation tool for ComfyUI with layer support"
 readme = "README.md"
 license = {text = "MIT"}
